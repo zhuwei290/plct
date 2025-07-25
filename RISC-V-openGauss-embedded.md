@@ -225,7 +225,7 @@ delete from phonebook where name = '农业银行';
 select * from phonebook;
 
 ```
-![img](.\img\QQ截图20250723222305.png) 
+![img](./img/QQ截图20250723222305.png) 
 ### 远程测试
 
 远程可以使用 dbeaver 连接数据库，连接时使用 xiaofan/xiaofan@2024 连接即可
