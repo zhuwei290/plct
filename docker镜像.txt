@@ -1,0 +1,23 @@
+{
+
+ "registry-mirrors": [
+   	 "https://kr3cgcc9.mirror.aliyuncs.com",
+    	"https://docker.rainbond.cc",
+    	"https://do.nark.eu.org",
+    	"https://dc.j8.work",
+    	"https://docker.m.daocloud.io",
+    	"https://dockerproxy.com",
+    	"https://registry.docker-cn.com",
+    	"https://docker.mirrors.ustc.edu.cn",
+    	"https://hub-mirror.c.163.com",
+   	 "https://mirror.baidubce.com",
+    	"https://docker.nju.edu.cn",
+	"https://docker.1ms.run",
+	"https://docker.xuanyuan.me",
+	"https://dislabaiot.xyz",
+	"https://hub.rat.dev",
+	"https://doublezonline.cloud",
+	"https://dislabaiot.xyz",
+	"https://xdark.top"
+  ]
+}
