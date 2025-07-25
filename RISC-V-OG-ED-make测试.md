@@ -80,6 +80,27 @@ output目录结构如下：
 ```
 bash testshell.sh sql
 ```
+注：用仓库的testshell.sh直接测试会报语法错误
+![img](./img/QQ截图20250725223540.png) 
+需要修改**testshell.sh**内容如下：
+```
+#!/bin/bash
+# 运行测试用例
+
+if [ $# -eq 1 ] && [ "$1" == "all" ]; then
+    cd build/debug/src/compute/sql/test && ctest 
+elif [ $# -eq 1 ] && [ "$1" == "sql" ]; then
+    cd build/debug/src/compute/sql/test && ctest
+else
+    echo "请输入正确的参数! 语法："
+    echo "./testshell.sh <option>"
+    echo "option取值："
+    echo "all：执行所有单元测试用例"
+    echo "sql：仅执行sql引擎单元测试用例"
+fi
+
+```
+
 ---
 ![img](./img/QQ截图20250725215743.png) 
 ![img](./img/QQ截图20250725215900.png) 
