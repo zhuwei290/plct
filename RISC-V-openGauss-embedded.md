@@ -67,7 +67,7 @@ sudo docker run -it \
   opengauss
 #启动容器环境并做目录挂载(方便传文件)和端口映射(为了方便远程连接数据库)
 ```
-![img](.\img\QQ图片20250723212510.png) 
+![img](./img/QQ图片20250723212510.png) 
 
 以上指令构建了一个名为`opengauss`的容器，该容器以交互模式运行（`-i`），并开启了伪终端（`-t`）。该容器将当前目录（`$(pwd)`）挂载到容器中的`/root/rpmbuild/SOURCES`路径。
 
@@ -115,7 +115,7 @@ Error response from daemon: Get "https://registry-1.docker.io/v2/": net/http: re
 ```bash
 docker exec -it opengauss /bin/bash
 ```
-![img](.\img\QQ图片20250723215458.png) 
+![img](./img/QQ图片20250723215458.png) 
 
 通过下述指令在容器中配置环境：
 ```bash
@@ -128,14 +128,14 @@ yum-builddep -y opengauss-server.spec
 # 下载源码
 spectool -g opengauss-server.spec
 ```
-![img](.\img\QQ截图20250723220023.png) 
+![img](./img/QQ截图20250723220023.png) 
 
 通过下述指令编译RPM包：
 ```bash
 cd /root/rpmbuild/SOURCES
 rpmbuild -ba opengauss-server.spec
 ```
-![img](.\img\QQ截图20250723220234.png) 
+![img](./img/QQ截图20250723220234.png) 
 
 
 
@@ -148,7 +148,7 @@ rpmbuild -ba opengauss-server.spec
 cd /root/rpmbuild/RPMS/riscv64/
 dnf install -y $(ls *.rpm)
 ```
-![img](.\img\QQ截图20250723220501.png) 
+![img](./img/QQ截图20250723220501.png) 
 
 ### 第四步 在容器中运行数据库
 
@@ -163,7 +163,7 @@ su opengauss # 切换到opengauss账户。该账户的home目录为/var/lib/open
 /opt/opengauss/init-opengaussdb.sh # 数据库初始化脚本
 /opt/opengauss/bin/gaussdb -D /var/lib/opengauss/data --single_node #以单节点模式运行openGauss数据库
 ```
-![img](.\img\QQ截图20250723220610.png) 
+![img](./img/QQ截图20250723220610.png) 
 ### 第五步 运行数据库
 #### 创建数据库和用户
 
@@ -174,7 +174,7 @@ su opengauss
 # 连接数据库
 opt/opengauss/bin/gsql -d postgres
 ```
-![img](.\img\QQ截图20250723221739.png) 
+![img](./img/QQ截图20250723221739.png) 
 当gsql连接数据库成功后，在gsql交互界面中输入
 
 ```sql
@@ -183,7 +183,7 @@ create user xiaofan identified by 'xiaofan@2024' profile default;  -- 创建用�
 alter user xiaofan sysadmin;
 create database xfdb encoding 'UTF8' template=template0 owner xiaofan; -- 创建数据库 
 ```
-![img](.\img\QQ截图20250723221930.png) 
+![img](./img/QQ截图20250723221930.png) 
 以上执行成功后，按`Ctrl+D`退出界面。接下来设置远程登录
 
 
@@ -199,7 +199,7 @@ vim /var/lib/opengauss/data/pg_hba.conf
 gs_ctl -D $HOME/data reload
 # reload后即可生效
 ```
-![img](.\img\QQ截图20250723222156.png) 
+![img](./img/QQ截图20250723222156.png) 
 ### 本地测试
 
 使用 `gsql -U xiaofan -d xfdb` 连接数据库，创建表，并作简单的增删查操作
@@ -232,7 +232,7 @@ select * from phonebook;
 
 注意：使用dbeaver可能需要手动设置openGauss的数据库驱动，可以从 [openGauss-5.0.3-JDBC.tar.gz](https://opengauss.obs.cn-south-1.myhuaweicloud.com/5.0.3/arm_2203/openGauss-5.0.3-JDBC.tar.gz) 获得
 
-![img](.\img\QQ截图20250723222810.png) 
+![img](./img/QQ截图20250723222810.png) 
 
 
 ### 运行数据库测试脚本
@@ -303,7 +303,7 @@ cd openGauss-embedded
 
 - make release_lite OS_ARCH=riscv64 : 编译生成<span style="color: red;">轻量化</span>release
 
-![img](.\img\QQ截图20250723224826.png) 
+![img](./img/QQ截图20250723224826.png) 
 
 
 
@@ -343,7 +343,7 @@ cd output/release_lite/bin
 ```
 ./intarkdb_cli test < basic_test.sql
 ```
-![img](.\img\QQ截图20250723225349.png) 
+![img](./img/QQ截图20250723225349.png) 
 
 ## 最终结论
 ✅ RISC-V适配成功  
