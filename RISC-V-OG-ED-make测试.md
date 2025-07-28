@@ -136,6 +136,70 @@ SQL: CREATE TABLE type_test_table (t VARBINARY);
 但 SQL 引擎同样不支持该类型
 
 同样断言失败
+
+3 .测试对时序型数据的支持情况
+
+(1)编写[timestamp_test.sql](.\timestamp_test.sql) 测试脚本
+```
+DROP TABLE IF EXISTS ts_data;
+
+CREATE TABLE ts_data (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id TEXT NOT NULL,
+    temperature FLOAT NOT NULL,
+    recorded_at TIMESTAMP NOT NULL
+);
+
+INSERT INTO ts_data (device_id, temperature, recorded_at) VALUES
+('sensor_A', 23.5, '2025-07-28 08:15:00'),
+('sensor_A', 24.2, '2025-07-28 09:30:00'),
+('sensor_A', 25.1, '2025-07-28 09:45:00'),
+('sensor_B', 26.0, '2025-07-28 08:20:00'),
+('sensor_B', 27.4, '2025-07-28 09:10:00'),
+('sensor_B', 28.3, '2025-07-28 09:50:00');
+
+SELECT * FROM ts_data ORDER BY recorded_at;
+
+SELECT
+    device_id,
+    substr(CAST(recorded_at AS TEXT), 1, 13) || ':00:00' AS hour_slot,
+    AVG(temperature) AS avg_temperature
+FROM
+    ts_data
+GROUP BY
+    device_id,
+    hour_slot
+ORDER BY
+    device_id,
+    hour_slot;
+
+SELECT * FROM ts_data ORDER BY recorded_at DESC LIMIT 3;
+
+
+
+
+
+```
+
+(2)使用客户端测试工具intarkdb_cli 测试该脚本
+```
+./intarkdb_cli ts.db < timestamp_test.sql
+
+
+```
+![img](./img/QQ截图20250728220622.png) 
+测试结果说明：
+
+openGauss Embedded支持带有 TIMESTAMP 类型的时间字段。
+
+能对时间字段进行排序和筛选。
+
+可以基于时间字段进行分组聚合(按小时聚合温度数据)。
+
+支持常用的聚合函数，如 AVG。
+
+能查询最新时间的数据。
 ## 最终结论
 ✅ RISC-V make测试成功  
-✅ SQL 引擎支持不支持  BYTEA和 VARBINARY两种类型
+✅ SQL 引擎支持不支持  BYTEA和 VARBINARY两种类型  
+✅ openGauss Embedded 成功适配RISC-V 架构并且支持时序数据
