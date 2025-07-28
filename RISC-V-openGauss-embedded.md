@@ -295,7 +295,7 @@ cd openGauss-embedded
 
 
 #### 修改多个c文件源码
-具体修改差异： [RISC-V-openGauss-embedded.patch](.\RISC-V-openGauss-embedded.patch)
+具体修改差异： [RISC-V-openGauss-embedded.patch](./RISC-V-openGauss-embedded.patch)
 
 
 ##### 3、在类UNIX系统编译

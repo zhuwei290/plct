@@ -38,7 +38,7 @@ cd openGauss-embedded
 
 
 #### 修改多个c文件源码
-具体修改差异： [RISC-V-openGauss-embedded.patch](.\RISC-V-openGauss-embedded.patch)
+具体修改差异： [RISC-V-openGauss-embedded.patch](./RISC-V-openGauss-embedded.patch)
 
 
 ##### 3、在类UNIX系统编译
@@ -139,7 +139,7 @@ SQL: CREATE TABLE type_test_table (t VARBINARY);
 
 3 .测试对时序型数据的支持情况
 
-(1)编写[timestamp_test.sql](.\timestamp_test.sql) 测试脚本
+(1)编写[timestamp_test.sql](./timestamp_test.sql) 测试脚本
 ```
 DROP TABLE IF EXISTS ts_data;
 
