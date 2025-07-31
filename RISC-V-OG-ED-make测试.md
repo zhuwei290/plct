@@ -47,7 +47,7 @@ cd openGauss-embedded
 - make test: 编译生成debug版本，同时会编译src/compute/sql/test目录
 
 ![img](./img/QQ截图20250725215245.png) 
-![img](./img/QQ截图20250725215338.png) 
+![img](./img/QQ截图20250731170837.png) 
 
 
 
