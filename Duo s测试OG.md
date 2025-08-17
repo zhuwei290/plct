@@ -1,7 +1,7 @@
 
-# 一、在Risc-V(qemu)环境中make测试openGauss-embedded的sql引擎支持类型
+# 在Risc-V环境中make测试openGauss-embedded的sql引擎支持类型
 
-## 1、openGauss-embedded 简介
+## 一、openGauss-embedded 简介
 openGauss-embedded 是基于 openGauss 数据库内核深度裁剪和轻量化改造的 嵌入式数据库版本，旨在满足 IoT、边缘计算、智能终端等对资源占用敏感、部署灵活性要求高的场景。它保留了 openGauss 在事务处理、SQL 支持和数据一致性等核心能力的同时，大幅降低运行时资源消耗，支持在多种嵌入式操作系统和国产化平台上运行。
 
 ## 核心特性：
@@ -17,8 +17,8 @@ openGauss-embedded 是基于 openGauss 数据库内核深度裁剪和轻量化�
 
 ✅ 丰富的构建配置选项：支持 release_lite、test_lite 等构建目标，可灵活集成测试、调试或裁剪功能
 
-## 2、编译指导
-##### (1)操作系统和软件依赖要求
+## 二、编译指导
+##### 1、操作系统和软件依赖要求
 
 操作系统：
 
@@ -30,7 +30,7 @@ openGauss-embedded 是基于 openGauss 数据库内核深度裁剪和轻量化�
 -   CMAKE >= 3.15
 -   jdk11
 
-##### (2)拉取源码并进入目录
+##### 2、拉取源码并进入目录
 ```
 git clone https://gitee.com/opengauss/openGauss-embedded.git
 cd openGauss-embedded
@@ -41,7 +41,7 @@ cd openGauss-embedded
 具体修改差异： [RISC-V-openGauss-embedded.patch](./RISC-V-openGauss-embedded.patch)
 
 
-##### (3)在类UNIX系统编译
+##### 3、在类UNIX系统编译
 
 
 - make test: 编译生成debug版本，同时会编译src/compute/sql/test目录
@@ -54,7 +54,7 @@ cd openGauss-embedded
 
 
 
-#### 3、运行指导
+#### 三、运行指导
 
 编译完成后，会在工程目录下生成output目录，当前生成两个测试demo提供对嵌入式数据库的测试。
 
@@ -75,7 +75,7 @@ output目录结构如下：
     └── lib  # release版本库文件保存路径
 ```
 ---
-1).运行sql引擎单元测试用例
+1.运行sql引擎单元测试用例
 
 ```
 bash testshell.sh sql
@@ -108,7 +108,7 @@ fi
 测试结果说明：20个测试只有一个 **type_test** 由于时区不一致测试失败，Unix 时间戳是基于 UTC（协调世界时）的，而本系统中使用了本地时间 (CST/UTC+8)来创建时间戳，导致期望值和实际值差了8小时。
 ![img](./img/QQ截图20250725220808.png) 
 ![img](./img/QQ截图20250725220854.png)
-2). 测试sql语句支持的类型字符串
+2. 测试sql语句支持的类型字符串
    进入build/debug/src/compute/sql/test目录   
    执行`./pg_type_test` 时，会测试固定的37种sql语句类型关键字
    ![img](./img/QQ截图20250725221259.png) 
@@ -137,7 +137,7 @@ SQL: CREATE TABLE type_test_table (t VARBINARY);
 
 同样断言失败
 
-3) .测试对时序型数据的支持情况
+3 .测试对时序型数据的支持情况
 
 (1)编写[timestamp_test.sql](./timestamp_test.sql) 测试脚本
 ```
@@ -199,137 +199,6 @@ openGauss Embedded支持带有 TIMESTAMP 类型的时间字段。
 支持常用的聚合函数，如 AVG。
 
 能查询最新时间的数据。
-
-
-
-# 二、在Duo S环境中测试openGauss-embedded的sql引擎支持类型
-
-
-
-
-## 1、编译指导
-### (1)、操作系统
-
-操作系统：
-
--   Duo S开发板 riscv64 
-![img](./img/QQ图片20250817164125.jpg) 
-## DuoS简介  
-Milk-V DuoS 是 Duo 的升级型号，升级了 SG2000 主控，拥有更大的内存（512MB）和更多的 IO 接口。 它集成了 WI-FI 6/BT 5 无线功能，并配备 USB 2.0 HOST 接口和 100Mbps 以太网端口，方便用户使用。 它支持双摄像头（2x MIPI CSI 2 通道）和 MIPI 视频输出（MIPI DSI 4 通道），可实现多种应用。 DuoS 还支持通过开关在 RISC-V 和 ARM 启动之间切换。 通过性能和接口的增强，DuoS 更适合各种场景和更复杂的项目开发需求。
-
-### (2)、安装系统(安装方法为从 eMMC 启动)
-eMMC 版本固件烧录
-DuoS eMMC 版本出厂未烧录固件，需要使用 PC 通过 USB 接口烧录。
-
-提示
-使用 Windows 下的 USB 烧录工具支持 eMMC 固件版本为 V1.1.3 或更新的版本。
-
-Windows 环境下烧录  
-1).安装驱动
-
-下载 USB 驱动安装工具：CviUsbDownloadInstallDriver.zip。下载后解压安装即可。
-
-2).下载烧录工具
-
-下载 Windows 下的命令行烧录工具 CviBurn_v2.0_cli_windows.zip，下载后解压。
-
-3).下载固件
-
-下载 DuoS eMMC 最新版本的固件，当前是 milkv-duos-emmc-v1.1.3-2024-0930.zip，可以在烧录工具 CviBurn_v2.0_cli_windows 目录下新建 rom 文件夹，并将下载好的 eMMC 固件压缩包解压到 rom 目录下，此时烧录工具的目录结构如下：
-```
-└───CviBurn_v2.0_cli_windows
- │   cv_dl_magic.bin
- │   usb_dl.exe
- └───rom
-     │   boot.emmc
-     │   fip.bin
-     │   partition_emmc.xml
-     │   rootfs_ext4.emmc
-     |   ...
-```
-在 Windows 的终端中，CviBurn_v2.0_cli_windows 目录下执行烧录命令：
-```
-.\usb_dl.exe -s linux -c cv181x -i .\rom
-```
-也可以把固件放到其他目录，通过命令中的 -i 参数指定到对应的目录即可。
-
-显示等待 USB 连接的信息：
-
-Document Pictures
-按住 DuoS 上的 recovery 按键，再用 Type-C 数据线 连接 DuoS 和 PC 。
-
-注意
-目前如果 DuoS 有插 SD 卡，请先将 SD 卡取下。
-
-Document Pictures
-松开 recovery 按键， DuoS 会上电并进入烧录模式，PC 端会实时显示烧录进度：
-```
-[INFO] Waiting for USB device connection: ---
-[INFO] found usb device vid=0x3346 pid=0x1000
-[INFO] downloading file: .\rom\boot.emmc
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 3384664/213100824(1%)
-[INFO] downloading file: .\rom\rootfs_ext4.emmc
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 20161944/213100824(9%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 36939224/213100824(17%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 53716504/213100824(25%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 70493784/213100824(33%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 87271064/213100824(40%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 104048344/213100824(48%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 120825624/213100824(56%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 137602904/213100824(64%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 154380184/213100824(72%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 171157464/213100824(80%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 187934744/213100824(88%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 204712024/213100824(96%)
-[INFO] CVI_USB_PROGRAM
-[INFO] updated size: 213100696/213100824(99%)
-[INFO] USB download complete
-```
-![img](./img/QQ截图20250817164636.png) 
-
-烧录完成后，DuoS 会自动重启，开机后看到 DuoS 上的蓝色 LED 闪烁，说明系统已经正常启动，烧录成功。
-
-### (3)、SSH连接开发板
-
-Windows打开终端，输入 ```ssh root@192.168.42.1```, 首次连接会有提示，直接输入 yes。
-
-输入密码 milkv (密码将不会显示)，登陆成功。
-![img](./img/QQ截图20250817165003.png) 
-
-
-### (4)、在Duo S环境中运行测试
-1)测试基础sql脚本
-```
- ./intarkdb_cli test < basic_test.sql
- ```
-![img](./img/QQ截图20250817181136.png) 
-
-2)测试时序数据sql脚本
-```
-intarkdb_cli ts.db < timestamp_test.sql
-```
-![img](./img/QQ截图20250817181241.png) 
-
-3)测试sql语句支持的类型字符串
-```
-./pg_type_test
-```
-![img](./img/QQ截图20250817181431.png)
-![img](./img/QQ截图20250817181508.png) 
-
 ## 最终结论
 ✅ RISC-V make测试成功  
 ✅ SQL 引擎支持不支持  BYTEA和 VARBINARY两种类型  
