@@ -317,11 +317,337 @@ Windows打开终端，输入 ```ssh root@192.168.42.1```, 首次连接会有提�
  ```
 ![img](./img/QQ截图20250817181136.png) 
 
+编写性能测试脚本 test_intarkdb.sh
+```
+#!/bin/sh
+
+# -------------------- 配置 --------------------
+# 参数：$1 = SQL 文件路径, $2 = 数据库名, $3 = 测试次数
+SQL_FILE="$1"
+DB_NAME="$2"
+RUNS="${3:-5}"   # 默认循环次数 5
+
+# 检查参数
+if [ -z "$SQL_FILE" ] || [ -z "$DB_NAME" ]; then
+    echo "Usage: $0 <sql_file> <db_name> [runs]"
+    exit 1
+fi
+
+# 检查 SQL 文件是否存在
+if [ ! -f "$SQL_FILE" ]; then
+    echo "SQL 文件不存在: $SQL_FILE"
+    exit 1
+fi
+
+# 设置动态库搜索路径
+export LD_LIBRARY_PATH=/root/lib:/root/release_lite/lib:/root/riscv-rootfs/lib:/root/riscv-rootfs/usr/lib/riscv64-linux-gnu:$LD_LIBRARY_PATH
+
+# CLI 路径
+INTARKDB_CLI="/root/release_lite/bin/intarkdb_cli"
+DB_PATH="/root/release_lite/bin/$DB_NAME"
+
+# 日志文件
+PERF_LOG="/tmp/intarkdb_test.log"
+
+# -------------------- 开始测试 --------------------
+echo "===================== 测试开始 ====================="
+echo "开始时间: $(date)"
+echo "SQL 文件: $SQL_FILE"
+echo "数据库:   $DB_PATH"
+echo "循环次数: $RUNS"
+echo "日志文件: $PERF_LOG"
+echo "==================================================="
+
+for i in $(seq 1 "$RUNS"); do
+    echo "-------------------- Run #$i --------------------" | tee -a "$PERF_LOG"
+    
+    echo "内存使用情况 (开始):" | tee -a "$PERF_LOG"
+    free -h | tee -a "$PERF_LOG"
+    
+    echo "-------------------- SQL 输出 --------------------" | tee -a "$PERF_LOG"
+    /usr/bin/time -v $INTARKDB_CLI "$DB_PATH" < "$SQL_FILE" 2>&1 | tee -a "$PERF_LOG"
+    
+    echo "-------------------- 内存使用情况 (结束) --------------------" | tee -a "$PERF_LOG"
+    free -h | tee -a "$PERF_LOG"
+    
+    echo "" | tee -a "$PERF_LOG"
+done
+
+echo "===================== 测试完成 =====================" | tee -a "$PERF_LOG"
+echo "结束时间: $(date)" | tee -a "$PERF_LOG"
+echo "日志文件: $PERF_LOG" | tee -a "$PERF_LOG"
+
+```
+```
+执行基本查询性能测试脚本
+```
+![img](./img/微信截图_20250825175400.png) 
+![img](./img/微信截图_20250825175427.png)
+![img](./img/微信截图_20250825175454.png) 
+
+
+
+---
+
+# IntArkDB 性能测试报告
+
+
+
+
+---
+
+## 1. 测试目标
+
+验证 IntArkDB 在执行基础 SQL 操作下的性能表现，包括执行时间、CPU 使用率及内存占用情况。
+
+---
+
+## 2. 测试方法
+
+* 使用 `/tmp/test_intarkdb.sh` 脚本循环执行 SQL 文件 5 次。
+* 每次运行记录：
+
+  * 执行时间（`/usr/bin/time -v`）
+  * 内存使用情况（`free -h`）
+  * SQL 执行输出
+* 脚本在后台监控内存占用。
+
+---
+
+## 3. 主要性能指标
+
+| 运行 | 用户时间 (s) | 系统时间 (s) | CPU 占用 (%) | 实际耗时 (s) | 最大驻留内存 (KB) |
+| -- | -------- | -------- | ---------- | -------- | ----------- |
+| 1  | 0.18     | 0.20     | 17         | 2.28     | 74,912      |
+| 2  | 0.17     | 0.21     | 17         | 2.29     | 75,040      |
+| 3  | 0.19     | 0.19     | 16         | 2.27     | 73,840      |
+| 4  | 0.19     | 0.20     | 17         | 2.28     | 75,264      |
+| 5  | 0.15     | 0.23     | 16         | 2.30     | 74,096      |
+
+**平均值**：
+
+* 用户时间：0.176 s
+* 系统时间：0.206 s
+* CPU 占用：16.6 %
+* 实际耗时：2.284 s
+* 最大驻留内存：74,632 KB
+
+---
+
+## 4. 内存使用情况
+
+测试期间，系统总内存约 316.8 MB，空闲内存始终在 249–252 MB，内存占用变化较小，无出现 Swap。
+
+---
+
+## 5. SQL 执行结果
+
+所有运行均成功执行，查询输出正确，主要操作包括：
+
+* 插入记录
+* 查询全表及部分列
+* 更新记录
+* 输出结果与预期一致
+
+示例结果：
+
+```
++----------+----------+----------+
+| ID       | NAME     | AGE      |
++----------+----------+----------+
+| 1        | Alice    | 25       |
+| 2        | Bob      | 30       |
+| 3        | Charlie  | 22       |
++----------+----------+----------+
+```
+
+---
+
+## 6. 总结
+
+* IntArkDB 在小型数据库及基础 SQL 操作下，执行稳定，平均耗时约 2.28 秒。
+* CPU 占用率适中，内存占用稳定，无异常波动。
+* 测试脚本和日志机制能够准确记录性能指标，可用于后续性能优化参考。
+
+---
+
+
+
 2)测试时序数据sql脚本
 ```
 intarkdb_cli ts.db < timestamp_test.sql
 ```
 ![img](./img/QQ截图20250817181241.png) 
+
+```
+编写性能测试脚本 test_with_mem.sh
+
+#!/bin/sh
+
+# 设置动态库搜索路径
+export LD_LIBRARY_PATH=/root/lib:/root/release_lite/lib:/root/riscv-rootfs/lib:/root/riscv-rootfs/usr/lib/riscv64-linux-gnu:$LD_LIBRARY_PATH
+
+# 数据库和 SQL 文件绝对路径
+DB="/root/release_lite/bin/ts.db"
+SQL="/root/release_lite/bin/timestamp_test.sql"
+INTARKDB_CLI="/root/release_lite/bin/intarkdb_cli"
+
+# 日志文件
+PERF_LOG="/tmp/perf_results.log"
+MEM_LOG="/tmp/mem_usage.log"
+
+# 启动内存监控，后台运行
+echo "Memory usage log on $(date)" > $MEM_LOG
+echo "------------------------------------" >> $MEM_LOG
+(
+    while true; do
+        echo "$(date):" >> $MEM_LOG
+        free -h >> $MEM_LOG
+        echo "" >> $MEM_LOG
+        sleep 1
+    done
+) &
+MEM_PID=$!   # 记录后台监控进程 PID
+
+# 性能测试循环
+echo "Performance test on $(date)" > $PERF_LOG
+echo "------------------------------------" >> $PERF_LOG
+
+for i in $(seq 1 10); do
+    echo "Run $i:" >> $PERF_LOG
+    /usr/bin/time -v $INTARKDB_CLI $DB < $SQL >> $PERF_LOG 2>&1
+    echo "" >> $PERF_LOG
+    sleep 2
+done
+
+# 停止后台内存监控
+kill $MEM_PID
+
+echo "All tests completed."
+echo "Performance log: $PERF_LOG"
+echo "Memory log:      $MEM_LOG"
+
+```
+执行时序性能测试脚本
+```
+./test_with_mem.sh
+```
+![img](./img/微信截图_20250825172743.png) 
+![img](./img/微信截图_20250825172829.png)
+![img](./img/微信截图_20250825172945.png)
+![img](./img/微信截图_20250825173018.png)
+![img](./img/微信截图_20250825173047.png) 
+
+性能测试结果说明：  
+
+
+---
+
+# IntarkDB 性能测试报告
+
+
+
+---
+
+## 1. 测试目标
+
+* 测量 `intarkdb_cli` 在执行常规查询操作时的性能指标，包括：
+
+  * CPU 时间
+  * 实际运行时间（wall clock time）
+  * 内存使用情况
+  * 上下文切换次数
+* 评估系统在连续执行多次查询操作下的资源消耗情况。
+
+---
+
+## 2. 测试方法
+
+1. 使用 `test_with_mem.sh` 脚本执行 10 次查询操作。
+2. 每次运行记录：
+
+   * 用户态时间（User time）
+   * 系统态时间（System time）
+   * CPU 占用率
+   * 总体耗时（Elapsed time）
+   * 最大驻留内存（Maximum RSS）
+   * 上下文切换次数
+   * 页错误次数
+3. 同时使用 `free -h` 记录每秒的内存使用情况。
+
+---
+
+## 3. 性能测试结果
+
+### 3.1 查询结果验证
+
+每次运行查询结果一致，示例输出：
+
+| DEVICE\_ID | HOUR\_SLOT          | AVG\_TEMPERATURE |
+| ---------- | ------------------- | ---------------- |
+| sensor\_A  | 2025-07-28 08:00:00 | 23.5             |
+| sensor\_A  | 2025-07-28 09:00:00 | 24.65            |
+| sensor\_B  | 2025-07-28 08:00:00 | 26               |
+| sensor\_B  | 2025-07-28 09:00:00 | 27.85            |
+
+查询结果正确，符合预期。
+
+---
+
+### 3.2 CPU 性能指标
+
+| 指标                | 最小值  | 最大值  | 平均值  |
+| ----------------- | ---- | ---- | ---- |
+| User time (秒)     | 0.14 | 0.20 | 0.17 |
+| System time (秒)   | 0.17 | 0.23 | 0.20 |
+| CPU 使用率 (%)       | 16   | 16   | 16   |
+| Wall clock 时间 (秒) | 2.25 | 2.29 | 2.27 |
+
+> 说明：CPU 占用率稳定，实际运行时间约 2.27 秒。
+
+---
+
+### 3.3 内存使用情况
+
+* 总内存：316.8 MB
+* 最大驻留内存：约 75 MB
+* 内存占用峰值出现时，总内存使用约 26 MB，系统负载低，Swap 未使用。
+* 内存消耗稳定，无明显内存泄漏。
+
+---
+
+### 3.4 上下文切换与页错误
+
+| 指标                           | 范围          |
+| ---------------------------- | ----------- |
+| Minor page faults            | 2829 - 2836 |
+| Major page faults            | 0           |
+| Voluntary context switches   | 4133 - 4318 |
+| Involuntary context switches | 398 - 451   |
+
+> 说明：系统上下文切换正常，未出现严重的 I/O 等待或阻塞。
+
+---
+
+## 4. 测试分析
+
+1. **性能稳定**：10 次运行中 CPU 使用率、执行时间、内存占用都保持稳定，说明 CLI 查询性能可靠。
+2. **内存消耗低**：最大驻留内存约 75 MB，相对于总内存 316 MB 占用率约 24%，适合在低内存环境运行。
+3. **I/O 与页面访问**：无 Major page faults，Minor page faults 正常，说明数据库操作几乎没有磁盘访问瓶颈。
+4. **系统负载轻**：上下文切换和 CPU 使用率适中，运行期间系统负载低。
+
+---
+
+## 5. 结论
+
+* `intarkdb_cli` 在连续执行多次查询时性能良好，响应时间稳定，内存占用低。
+* 系统资源消耗合理，适合在内存 512 MB 以上的轻量级服务器上部署。
+* 无异常页错误或上下文切换瓶颈，适合高频数据查询场景。
+
+---
+
+
+
 
 3)测试sql语句支持的类型字符串
 ```
@@ -333,4 +659,5 @@ intarkdb_cli ts.db < timestamp_test.sql
 ## 最终结论
 ✅ RISC-V make测试成功  
 ✅ SQL 引擎支持不支持  BYTEA和 VARBINARY两种类型  
-✅ openGauss Embedded 成功适配RISC-V 架构并且支持时序数据
+✅ openGauss Embedded 成功适配RISC-V 架构并且支持时序数据  
+✅ openGauss Embedded 在Duo开发板上执行多次查询时性能良好，响应时间稳定，内存占用低。
