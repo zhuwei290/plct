@@ -1,0 +1,131 @@
+version: '3.8'
+
+# openGauss RISC-V 社区留言板
+# Slogan: 轻量级，高性能，开源芯
+# 
+# 服务架构:
+# - database: openGauss 6.0.0-riscv64 数据库
+# - db-init: 数据库初始化服务
+# - backend: FastAPI 后端服务
+# - frontend: Vue 3 + Nginx 前端服务
+
+services:
+  # ==========================================
+  # openGauss 数据库服务
+  # ==========================================
+  database:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    container_name: messageboard-db
+    restart: unless-stopped
+    environment:
+      - OPENGAUSS_USER=${DB_USER:-msgboard}
+      - OPENGAUSS_PASSWORD=${DB_PASS:-MessageBoard2024}
+      - GS_PASSWORD=${DB_PASS:-MessageBoard2024}
+    volumes:
+      - db_data:/var/lib/opengauss
+      - ./init-db/fix-auth.sh:/docker-entrypoint-initdb.d/fix-auth.sh:ro
+    networks:
+      - messageboard-network
+    healthcheck:
+      test: ["CMD-SHELL", "gsql -d postgres -c 'SELECT 1' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    # 端口映射（可选，用于外部访问）
+    # ports:
+    #   - "5432:5432"
+
+  # ==========================================
+  # 数据库初始化服务
+  # ==========================================
+  db-init:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    container_name: messageboard-init
+    restart: on-failure
+    environment:
+      - DB_HOST=database
+      - DB_USER=${DB_USER:-msgboard}
+      - DB_PASS=${DB_PASS:-MessageBoard2024}
+      - DB_NAME=${DB_NAME:-messageboard}
+    volumes:
+      - ./init-db:/init-db:ro
+    networks:
+      - messageboard-network
+    depends_on:
+      database:
+        condition: service_healthy
+    entrypoint: []
+    command: ["bash", "/init-db/init.sh"]
+    healthcheck:
+      test: "[ $$(cat /proc/1/comm) = tail ]"
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================
+  # 后端 API 服务
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: messageboard-api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-msgboard}:${DB_PASS:-MessageBoard2024}@database/${DB_NAME:-messageboard}
+      - CORS_ORIGINS=*
+    networks:
+      - messageboard-network
+    depends_on:
+      db-init:
+        condition: service_healthy
+    # 端口映射（可选，用于直接访问API）
+    # ports:
+    #   - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # 前端 Web 服务
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: messageboard-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks:
+      - messageboard-network
+    depends_on:
+      - backend
+    
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# ==========================================
+# 数据卷
+# ==========================================
+volumes:
+  db_data:
+    driver: local
+    name: messageboard-db-data
+
+# ==========================================
+# 网络
+# ==========================================
+networks:
+  messageboard-network:
+    driver: bridge
+    name: messageboard-network
