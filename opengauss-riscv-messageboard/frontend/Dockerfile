@@ -1,11 +1,14 @@
 # openGauss RISC-V 留言板前端服务
-# 修复架构兼容性问题，使用统一架构构建
+# 使用RISC-V64架构构建，与后端和数据库保持一致
 
 # ==========================================
-# 构建阶段 - 使用AMD64架构构建
+# 构建阶段 - 使用RISC-V64架构构建
 # ==========================================
-FROM --platform=linux/amd64 node:20-slim AS builder
+FROM --platform=linux/riscv64 xfan1024/openeuler:24.03-riscv64 AS builder
 WORKDIR /app
+
+# 安装Node.js和npm
+RUN dnf install -y nodejs npm && dnf clean all
 
 # 复制package文件
 COPY package*.json ./
@@ -20,12 +23,12 @@ COPY . .
 RUN npm run build
 
 # ==========================================
-# 运行阶段 - 使用AMD64架构运行
+# 运行阶段 - 使用RISC-V64架构运行
 # ==========================================
-FROM --platform=linux/amd64 nginx:alpine
+FROM --platform=linux/riscv64 xfan1024/openeuler:24.03-riscv64
 
-# 安装curl用于健康检查
-RUN apk add --no-cache curl
+# 安装nginx和curl
+RUN dnf install -y nginx curl && dnf clean all
 
 # 从构建阶段复制构建产物
 COPY --from=builder /app/dist /usr/share/nginx/html
