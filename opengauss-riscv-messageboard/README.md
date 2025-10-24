@@ -43,7 +43,7 @@
 
 1. **克隆项目**
 ```bash
-git clone <repository-url>
+git clone https://github.com/zhuwei290/plct
 cd opengauss-riscv-messageboard
 ```
 
