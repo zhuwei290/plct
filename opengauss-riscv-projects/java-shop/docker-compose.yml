@@ -1,0 +1,103 @@
+services:
+  # openGauss 数据库
+  database:
+    image: crpi-t99ohqf2bivj302i.cn-hangzhou.personal.cr.aliyuncs.com/yixiaoyi/opengauss_6.0.0_riscv64
+    container_name: og-shop-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - OPENGAUSS_USER=${DB_USERNAME}
+      - OPENGAUSS_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/opengauss
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD-SHELL", "gsql -d postgres -c 'SELECT 1' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  # 数据库初始化
+  databaseinit:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    container_name: og-shop-init
+    restart: "no"
+    depends_on:
+      database:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    volumes:
+      - pgdata:/var/lib/opengauss
+      - ./init-db:/init-db:ro
+    networks:
+      - shop-network
+    entrypoint: ["/bin/bash", "/init-db/init.sh"]
+
+  # 后端 API
+  shop-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: og-shop-backend
+    depends_on:
+      databaseinit:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      SERVER_PORT: ${SERVER_PORT}
+    ports:
+      - "8009:8009"
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8009/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # 前端
+  shop-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: og-shop-frontend
+    depends_on:
+      - shop-backend
+    ports:
+      - "8010:80"
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  shop-network:
+    driver: bridge
+
+volumes:
+  pgdata:

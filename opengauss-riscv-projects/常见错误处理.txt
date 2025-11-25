@@ -1,0 +1,33 @@
+
+-- 1. 进入数据库容器
+docker exec -it xx gsql -d postgres
+
+-- 2. 确保密码加密类型是MD5
+ALTER SYSTEM SET password_encryption_type = 0;
+SELECT pg_reload_conf();
+
+-- 3. 删除旧数据库和用户
+DROP DATABASE xx-db;
+DROP USER xx;
+
+-- 4. 重新创建用户（这会使用MD5加密）
+CREATE USER xx WITH PASSWORD 'xx';
+
+-- 5. 解锁账户
+ALTER USER xx ACCOUNT UNLOCK;
+
+-- 6. 授予权限
+alter user xx sysadmin;
+create database xx-db encoding 'UTF8' ; -- 创建数据库 
+
+-- 7. 验证用户和密码（查看加密后的密码）
+SELECT rolname, rolpassword FROM pg_authid WHERE rolname = 'xx';
+
+-- 8. 初始化数据库
+docker cp ./init-db/schema.sql xx-db:/tmp/schema.sql
+docker exec xx-db gsql -d xx-db -f /tmp/schema.sql
+
+
+
+
+

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Shop 在线商城</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 自定义提示框 -->
+    <div id="customAlert" class="custom-alert" style="display: none;">
+        <div class="custom-alert-overlay"></div>
+        <div class="custom-alert-box">
+            <div class="custom-alert-content">
+                <p id="customAlertMessage"></p>
+            </div>
+            <button class="custom-alert-btn" onclick="closeCustomAlert()">确定</button>
+        </div>
+    </div>
+
+    <!-- 登录/注册模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">登录</h2>
+            </div>
+            <div class="modal-body">
+                <form id="authForm" novalidate>
+                    <input type="text" id="authUsername" placeholder="用户名 *" required autocomplete="off">
+                    <input type="password" id="authPassword" placeholder="密码 *" required autocomplete="new-password">
+                    <div id="registerFields" style="display: none;">
+                        <input type="email" id="regEmail" placeholder="邮箱 *" autocomplete="off">
+                        <input type="text" id="regRealName" placeholder="真实姓名" autocomplete="off">
+                        <div style="position: relative;">
+                            <input type="tel" id="regPhone" placeholder="手机号（选填）" 
+                                   autocomplete="off"
+                                   maxlength="11">
+                            <small id="phoneHint" style="display:block;margin-top:5px;color:#999;font-size:12px;">
+                                格式：13812345678（选填）
+                            </small>
+                        </div>
+                    </div>
+                    <button type="submit" id="authSubmit">登录</button>
+                </form>
+                <div class="auth-switch">
+                    <span id="switchText">还没有账号？</span>
+                    <a href="javascript:void(0)" id="switchLink" onclick="switchAuthMode()">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用 -->
+    <div id="appContainer" style="display: none;">
+        <header>
+            <h1>🛍️ Java Shop 在线商城</h1>
+            <p>基于 Spring Boot + MyBatis + openGauss 的在线购物系统</p>
+            <div class="user-info">
+                <span class="badge">👤 <span id="currentUsername"></span></span>
+                <span class="badge" id="userRole"></span>
+                <span class="badge cart-badge" onclick="switchTab('cart')">
+                    🛒 购物车 <span id="cartCount">0</span>
+                </span>
+                <button class="logout-btn" id="logoutBtn">退出</button>
+            </div>
+        </header>
+
+        <!-- 标签页 -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="products">商品列表</button>
+            <button class="tab-btn" data-tab="cart">购物车</button>
+            <button class="tab-btn" data-tab="orders">我的订单</button>
+            <button class="tab-btn admin-only" data-tab="manage">商品管理</button>
+        </div>
+
+        <!-- 商品列表 -->
+        <div id="productsTab" class="tab-content active">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="搜索商品...">
+                <select id="categoryFilter">
+                    <option value="">全部分类</option>
+                </select>
+            </div>
+            <div id="productList" class="product-grid"></div>
+        </div>
+
+        <!-- 购物车 -->
+        <div id="cartTab" class="tab-content">
+            <div id="cartList"></div>
+            <div class="cart-summary">
+                <div class="total">总计：¥<span id="cartTotal">0.00</span></div>
+                <button class="btn-primary" onclick="checkout()">去结算</button>
+            </div>
+        </div>
+
+        <!-- 订单列表 -->
+        <div id="ordersTab" class="tab-content">
+            <div id="orderList"></div>
+        </div>
+
+        <!-- 商品管理 -->
+        <div id="manageTab" class="tab-content admin-only">
+            <div class="manage-header">
+                <button class="btn-primary add-product-btn" onclick="showProductForm()">+ 添加商品</button>
+            </div>
+            <div id="manageProductList" class="product-grid"></div>
+        </div>
+
+        <footer>
+            <div>Powered by Spring Boot · MyBatis · openGauss · RISC-V</div>
+            <div class="api-status" id="apiStatus">检查中...</div>
+        </footer>
+    </div>
+
+    <!-- 商品详情模态框 -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>商品详情</h2>
+                <button class="close-btn" onclick="closeProductModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="productModalBody"></div>
+        </div>
+    </div>
+
+    <!-- 商品表单模态框 -->
+    <div id="productFormModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="productFormTitle">添加商品</h2>
+                <button class="close-btn" onclick="closeProductForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="productForm" novalidate>
+                    <input type="hidden" id="productId">
+                    <input type="text" id="productName" placeholder="商品名称 *" required autocomplete="off">
+                    <select id="productCategory" required style="width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
+                        <option value="">选择商品分类 *</option>
+                    </select>
+                    <input type="number" id="productPrice" placeholder="价格 *" step="0.01" min="0" required>
+                    <input type="number" id="productStock" placeholder="库存 *" min="0" required>
+                    <input type="text" id="productImageUrl" placeholder="图片URL（可选）" autocomplete="off">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; color: #666; font-size: 14px;">
+                            或上传图片：
+                        </label>
+                        <input type="file" id="productImageFile" accept="image/*" 
+                               style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                        <small style="display: block; margin-top: 5px; color: #999; font-size: 12px;">
+                            支持 JPG、PNG、GIF 格式，建议尺寸 300x300
+                        </small>
+                    </div>
+                    <textarea id="productDescription" placeholder="商品描述（可选）" rows="3"></textarea>
+                    <button type="submit" class="btn-primary">保存商品</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结算模态框 -->
+    <div id="checkoutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>确认订单</h2>
+                <button class="close-btn" onclick="closeCheckoutModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="checkoutForm" novalidate>
+                    <input type="text" id="receiverName" placeholder="收货人姓名 *" required autocomplete="off">
+                    <div style="position: relative;">
+                        <input type="tel" id="receiverPhone" placeholder="收货人电话 *" 
+                               required 
+                               autocomplete="off"
+                               maxlength="11">
+                        <small id="checkoutPhoneHint" style="display:block;margin-top:5px;color:#999;font-size:12px;">
+                            请输入11位手机号
+                        </small>
+                    </div>
+                    <textarea id="shippingAddress" placeholder="详细地址 *" rows="3" required></textarea>
+                    <textarea id="orderRemark" placeholder="订单备注（可选）" rows="2"></textarea>
+                    <button type="submit" class="btn-primary">提交订单</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

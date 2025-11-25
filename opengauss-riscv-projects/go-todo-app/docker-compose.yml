@@ -1,0 +1,93 @@
+services:
+  database:
+    image: crpi-t99ohqf2bivj302i.cn-hangzhou.personal.cr.aliyuncs.com/yixiaoyi/opengauss_6.0.0_riscv64
+    container_name: og-todo-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - OPENGAUSS_USER=${DB_USERNAME}
+      - OPENGAUSS_PASSWORD=${DB_PASSWORD}
+      - GS_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - todo_db:/var/lib/opengauss
+    healthcheck:
+      test: ["CMD-SHELL", "gsql -d postgres -c 'SELECT 1' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  databaseinit:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    container_name: og-todo-init
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - todo_db:/var/lib/opengauss
+      - ./init-db:/init-db:ro
+    entrypoint: ["/bin/bash", "/init-db/init.sh"]
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(cat /proc/1/comm) = tail ]"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  todo-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: og-todo-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SSLMODE=disable
+      - PORT=8005
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+    ports:
+      - "8005:8005"
+    depends_on:
+      databaseinit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  todo-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: og-todo-frontend
+    restart: unless-stopped
+    ports:
+      - "8006:80"
+    depends_on:
+      todo-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  todo_db:
+

@@ -1,0 +1,33 @@
+# 环境变量文件
+.env
+
+# Go 构建文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+vendor/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志文件
+*.log
+
+# Docker volumes
+todo_db/
+
+# Mac OS
+.DS_Store
+
+# 临时文件
+*.tmp
+tmp/

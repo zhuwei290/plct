@@ -1,0 +1,91 @@
+services:
+  database:
+    image: crpi-t99ohqf2bivj302i.cn-hangzhou.personal.cr.aliyuncs.com/yixiaoyi/opengauss_6.0.0_riscv64
+    container_name: og-2048-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - OPENGAUSS_USER=${DB_USERNAME}
+      - OPENGAUSS_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    volumes:
+      - games_db:/var/lib/opengauss
+   
+    healthcheck:
+      test: ["CMD-SHELL", "gsql -d postgres -c 'SELECT 1' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  databaseinit:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    container_name: og-2048-init
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - games_db:/var/lib/opengauss
+      - ./init-db:/init-db:ro
+    entrypoint: ["/bin/bash", "/init-db/init.sh"]
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "[ $$(cat /proc/1/comm) = tail ]"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+
+
+
+  games-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: og-2048-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USERNAME}:${DB_PASSWORD}@database:5432/${DB_NAME}
+      - DAILY_TARGET_SCORE=4096
+    ports:
+      - "8004:8004"
+    depends_on:
+      databaseinit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  games-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: og-2048-frontend
+    restart: unless-stopped
+    ports:
+      - "8003:80"
+    depends_on:
+      games-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  games_db:
+

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Todo 待办管理</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <!-- 登录/注册模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">登录</h2>
+                <button class="close-btn" onclick="closeAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="authForm">
+                    <div id="registerFields" style="display: none;">
+                        <input type="email" id="regEmail" placeholder="邮箱地址" required>
+                    </div>
+                    <input type="text" id="authUsername" placeholder="用户名" required>
+                    <input type="password" id="authPassword" placeholder="密码" required>
+                    <button type="submit" id="authSubmit">登录</button>
+                </form>
+                <div class="auth-switch">
+                    <span id="switchText">还没有账号？</span>
+                    <a href="#" id="switchLink" onclick="switchAuthMode()">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div class="container" id="appContainer" style="display: none;">
+        <header>
+            <h1>📝 Go Todo 待办管理</h1>
+            <p>基于 Go + Gin + openGauss 的待办事项管理系统</p>
+            <div class="user-info">
+                <span class="badge">欢迎, <strong id="currentUsername">用户</strong></span>
+                <button id="logoutBtn" class="logout-btn">退出登录</button>
+            </div>
+        </header>
+
+        <div class="todo-form">
+            <input type="text" id="todoTitle" placeholder="输入待办事项标题..." maxlength="200">
+            <textarea id="todoDesc" placeholder="描述（可选）..." rows="2"></textarea>
+            <select id="todoPriority">
+                <option value="0">低优先级</option>
+                <option value="1" selected>中优先级</option>
+                <option value="2">高优先级</option>
+            </select>
+            <button id="addTodo">添加待办</button>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="all">全部</button>
+            <button class="filter-btn" data-filter="active">未完成</button>
+            <button class="filter-btn" data-filter="completed">已完成</button>
+            <button class="filter-btn" data-filter="high">高优先级</button>
+            <button id="clearCompleted">清除已完成</button>
+        </div>
+
+        <div class="stats">
+            <span>总计: <strong id="totalCount">0</strong></span>
+            <span>未完成: <strong id="activeCount">0</strong></span>
+            <span>已完成: <strong id="completedCount">0</strong></span>
+        </div>
+
+        <ul id="todoList" class="todo-list"></ul>
+
+        <footer>
+            <span>Powered by Go · Gin · openGauss · RISC-V</span>
+            <span class="api-status" id="apiStatus">API 连接中...</span>
+        </footer>
+    </div>
+
+    <script>
+        window.__API_BASE__ = window.location.pathname.startsWith("/go-todo")
+            ? "/go-todo/api/todos"
+            : (window.__API_BASE__ || "/api/todos");
+        window.__AUTH_BASE__ = window.location.pathname.startsWith("/go-todo")
+            ? "/go-todo/api/auth"
+            : "/api/auth";
+    </script>
+    <script src="./app.js"></script>
+</body>
+</html>
+

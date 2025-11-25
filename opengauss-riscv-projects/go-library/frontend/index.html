@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Library 图书管理系统</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <!-- 登录/注册模态框 -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">登录</h2>
+                <button class="close-btn" onclick="closeAuthModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="authForm">
+                    <div id="registerFields" style="display: none;">
+                        <input type="email" id="regEmail" placeholder="邮箱地址">
+                        <input type="text" id="regRealName" placeholder="真实姓名（可选）">
+                        <input type="text" id="regPhone" placeholder="电话（可选）">
+                    </div>
+                    <input type="text" id="authUsername" placeholder="用户名" required>
+                    <input type="password" id="authPassword" placeholder="密码" required>
+                    <button type="submit" id="authSubmit">登录</button>
+                </form>
+                <div class="auth-switch">
+                    <span id="switchText">还没有账号？</span>
+                    <a href="#" id="switchLink" onclick="switchAuthMode()">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主应用界面 -->
+    <div class="container" id="appContainer" style="display: none;">
+        <header>
+            <h1>📚 Go Library 图书管理系统</h1>
+            <p>基于 Go + Gin + openGauss 的图书借阅管理系统</p>
+            <div class="user-info">
+                <span class="badge">欢迎, <strong id="currentUsername">用户</strong></span>
+                <span class="badge" id="userRole">读者</span>
+                <button id="logoutBtn" class="logout-btn">退出登录</button>
+            </div>
+        </header>
+
+        <!-- 统计面板 -->
+        <div class="stats-panel" id="statsPanel">
+            <div class="stat-card">
+                <div class="stat-value" id="totalBooks">0</div>
+                <div class="stat-label">图书总数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalBorrowed">0</div>
+                <div class="stat-label">已借出</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalAvailable">0</div>
+                <div class="stat-label">可借阅</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="activeBorrowings">0</div>
+                <div class="stat-label">借阅中</div>
+            </div>
+        </div>
+
+        <!-- 导航标签 -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="books">图书浏览</button>
+            <button class="tab-btn" data-tab="borrowings">我的借阅</button>
+            <button class="tab-btn admin-only" data-tab="manage" style="display: none;">图书管理</button>
+        </div>
+
+        <!-- 图书浏览标签页 -->
+        <div id="booksTab" class="tab-content active">
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="搜索图书（书名、作者、ISBN）...">
+                <select id="categoryFilter">
+                    <option value="">所有分类</option>
+                </select>
+                <label><input type="checkbox" id="availableOnly"> 仅显示可借</label>
+            </div>
+
+            <div id="bookList" class="book-grid"></div>
+        </div>
+
+        <!-- 我的借阅标签页 -->
+        <div id="borrowingsTab" class="tab-content">
+            <div class="filters">
+                <button class="filter-btn active" data-status="">全部</button>
+                <button class="filter-btn" data-status="borrowed">借阅中</button>
+                <button class="filter-btn" data-status="returned">已归还</button>
+                <button class="filter-btn" data-status="overdue">已逾期</button>
+            </div>
+            <div id="borrowingList" class="borrowing-list"></div>
+        </div>
+
+        <!-- 图书管理标签页（管理员） -->
+        <div id="manageTab" class="tab-content admin-only" style="display: none;">
+            <button class="btn-primary" onclick="showAddBookForm()">+ 添加新图书</button>
+            <div id="manageBookList" class="book-grid"></div>
+        </div>
+
+        <footer>
+            <span>Powered by Go · Gin · openGauss · RISC-V</span>
+            <span class="api-status" id="apiStatus">API 连接中...</span>
+        </footer>
+    </div>
+
+    <!-- 图书详情模态框 -->
+    <div id="bookModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="bookModalTitle">图书详情</h2>
+                <button class="close-btn" onclick="closeBookModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="bookModalBody"></div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑图书模态框 -->
+    <div id="bookFormModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="bookFormTitle">添加图书</h2>
+                <button class="close-btn" onclick="closeBookFormModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="bookForm">
+                    <input type="hidden" id="bookId">
+                    <input type="text" id="bookISBN" placeholder="ISBN（可选）">
+                    <input type="text" id="bookTitle" placeholder="书名 *" required>
+                    <input type="text" id="bookAuthor" placeholder="作者 *" required>
+                    <input type="text" id="bookPublisher" placeholder="出版社">
+                    <input type="date" id="bookPublishDate" placeholder="出版日期">
+                    <select id="bookCategory" required>
+                        <option value="">选择分类 *</option>
+                    </select>
+                    <input type="number" id="bookCopies" placeholder="副本数量" min="1" value="1">
+                    <input type="text" id="bookLocation" placeholder="位置（如：A1-001）">
+                    <textarea id="bookDescription" placeholder="图书简介" rows="3"></textarea>
+                    <input type="text" id="bookCover" placeholder="封面图片URL（可选）">
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">保存</button>
+                        <button type="button" class="btn-secondary" onclick="closeBookFormModal()">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.__API_BASE__ = window.location.pathname.startsWith("/go-library")
+            ? "/go-library/api"
+            : "/api";
+        window.__AUTH_BASE__ = window.location.pathname.startsWith("/go-library")
+            ? "/go-library/api/auth"
+            : "/api/auth";
+    </script>
+    <script src="./app.js"></script>
+</body>
+</html>

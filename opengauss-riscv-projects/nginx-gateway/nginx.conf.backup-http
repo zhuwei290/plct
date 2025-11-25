@@ -1,0 +1,552 @@
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    
+    # 根据 referer 选择 assets 的后端
+    map $http_referer $assets_backend {
+        default messageboard;
+        ~*/petclinic petclinic;
+    }
+    
+    # 日志
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log warn;
+    
+    # 基本配置
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+    client_max_body_size 10M;
+    
+    # Gzip 压缩
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    
+    # 上游服务器配置
+    # 方案1: SG2042有公网IP（直接连接）
+    # upstream messageboard {
+    #     server sg2042-public-ip:8001;
+    # }
+    # upstream petclinic {
+    #     server sg2042-public-ip:8002;
+    # }
+    
+    # 方案2: SG2042通过内网穿透（frp转发到本地端口）
+    upstream messageboard {
+        server 127.0.0.1:8001 max_fails=3 fail_timeout=30s;  # frp转发端口
+    }
+
+    upstream petclinic {
+        server 127.0.0.1:8002 max_fails=3 fail_timeout=30s;  # frp转发端口（前端）
+    }
+
+    # 诊疗系统后端API（直接访问后端，绕过前端Nginx）
+    upstream petclinic-backend {
+        server 127.0.0.1:9966 max_fails=3 fail_timeout=30s;  # frp转发端口（后端）
+    }
+    
+    # 2048游戏前端
+    upstream games-frontend {
+        server 127.0.0.1:8003 max_fails=3 fail_timeout=30s;  # frp转发端口（前端）
+    }
+    
+    # 2048游戏后端API
+    upstream games-backend {
+        server 127.0.0.1:8004 max_fails=3 fail_timeout=30s;  # frp转发端口（后端）
+    }
+    
+    # Go Todo 前端
+    upstream go-todo-frontend {
+        server 127.0.0.1:8006 max_fails=3 fail_timeout=30s;  # frp转发端口（前端）
+    }
+    
+    # Go Todo 后端API
+    upstream go-todo-backend {
+        server 127.0.0.1:8005 max_fails=3 fail_timeout=30s;  # frp转发端口（后端）
+    }
+    
+    # Go Library 前端
+    upstream go-library-frontend {
+        server 127.0.0.1:8008 max_fails=3 fail_timeout=30s;  # frp转发端口（前端）
+    }
+    
+    # Go Library 后端API
+    upstream go-library-backend {
+        server 127.0.0.1:8007 max_fails=3 fail_timeout=30s;  # frp转发端口（后端）
+    }
+    
+    # Java Shop 前端
+    upstream java-shop-frontend {
+        server 127.0.0.1:8010 max_fails=3 fail_timeout=30s;  # frp转发端口（前端）
+    }
+    
+    # Java Shop 后端API
+    upstream java-shop-backend {
+        server 127.0.0.1:8009 max_fails=3 fail_timeout=30s;  # frp转发端口（后端）
+    }
+    
+    # 展示网站（通过宿主机端口访问）
+    upstream showcase {
+        server 127.0.0.1:8080;  # showcase容器暴露的端口
+    }
+    
+    # 主服务器
+    server {
+        listen 80;
+        server_name _;
+        
+        # Let's Encrypt 证书验证路径
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+        }
+        
+        # 自定义错误页面
+        error_page 502 503 504 /50x.html;
+        location = /50x.html {
+            root /usr/share/nginx/html;
+            internal;
+        }
+        
+        # 展示网站首页
+        location = / {
+            proxy_pass http://showcase;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+        
+        # 展示网站静态资源
+        location ~ ^/(index\.html|style\.css|app\.js)$ {
+            proxy_pass http://showcase;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            
+            # 缓存静态资源
+            expires 1h;
+            add_header Cache-Control "public";
+        }
+        
+        # 留言板应用（包含静态资源）
+        location /messageboard {
+            proxy_pass http://messageboard/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # 错误处理
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 1;
+            
+            # WebSocket 支持（如果需要）
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+        
+        # 留言板静态资源（assets等，必须更具体以避免匹配petclinic的资源）
+        # 根据 referer 判断是来自 petclinic 还是 messageboard
+        location ~ ^/assets/ {
+            proxy_pass http://$assets_backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 缓存静态资源
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # favicon
+        location = /favicon.ico {
+            proxy_pass http://messageboard;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # 诊疗系统静态资源（Angular应用的静态资源路径）
+        # 匹配所有 petclinic 的静态资源：JS、CSS、字体、图片等
+        # petclinic 的静态资源格式：文件名.哈希值.扩展名
+        # 例如：/runtime.8a30bfdff5bb8fb2.js, /spring-logo-dataflow-mobile.a446a8d135d02a20.png
+        # 匹配规则：文件名（可能包含连字符）+ 点 + 哈希值（字母数字）+ 点 + 扩展名
+        location ~ ^/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+\.(js|css|woff|woff2|ttf|eot|svg|png|jpg|jpeg|gif|ico)$ {
+            # 排除 messageboard 的 assets 路径（已经在上面处理）
+            # 如果路径以 /assets/ 开头，不匹配这个规则
+            if ($uri ~ ^/assets/) {
+                break;
+            }
+            proxy_pass http://petclinic;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 缓存静态资源
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # 留言板 API（处理 /api/messages, /api/stats, /api/auth 等）
+        # 注意：这个规则必须在 /api/messageboard 之前，因为更具体的路径优先
+        location ~ ^/api/(messages|stats|tags|auth|messages/.*|auth/.*) {
+            proxy_pass http://messageboard;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+            
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
+        }
+        
+        # 留言板 API（用于展示网站的健康检查）
+        location /api/messageboard {
+            proxy_pass http://messageboard/api;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS";
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization";
+            
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
+        }
+        
+        # 诊疗系统API（直接代理到后端，绕过前端Nginx）
+        # 这个规则必须在 /petclinic 之前，因为更具体的路径优先
+        location ~ ^/petclinic/api/ {
+            # 使用 rewrite 保留完整路径，因为后端在 /petclinic 上下文路径下运行
+            proxy_pass http://petclinic-backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 30s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            
+            # 缓冲设置
+            proxy_buffering off;
+            proxy_request_buffering off;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+            
+            # 处理 OPTIONS 预检请求
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
+        }
+        
+        # 诊疗系统主应用和所有路径（包括API）
+        # 注意：这个 location 会匹配所有 /petclinic 开头的请求
+        location /petclinic {
+            # 如果路径是 /petclinic（没有后续路径），重定向到 /petclinic/
+            if ($uri = /petclinic) {
+                return 301 /petclinic/;
+            }
+            # 使用 rewrite 去掉 /petclinic 前缀，然后代理到后端
+            # 确保至少保留一个 / 字符
+            rewrite ^/petclinic(/.*)$ $1 break;
+            rewrite ^/petclinic$ / break;
+            proxy_pass http://petclinic;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 10s;
+            proxy_read_timeout 10s;
+            
+            # 错误处理
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 1;
+            
+            # 缓冲设置
+            proxy_buffering off;
+            proxy_request_buffering off;
+            
+            # CORS 头（如果需要）
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+            
+            # 处理 OPTIONS 预检请求
+            if ($request_method = 'OPTIONS') {
+                return 204;
+            }
+        }
+        
+        # 2048游戏API（必须在/games/2048之前，因为更具体的路径优先）
+        location /games/api/ {
+            # 处理 OPTIONS 预检请求（必须在 proxy_pass 之前）
+            if ($request_method = 'OPTIONS') {
+                add_header Access-Control-Allow-Origin * always;
+                add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+                add_header Access-Control-Max-Age 1728000;
+                add_header Content-Type 'text/plain charset=UTF-8';
+                add_header Content-Length 0;
+                return 204;
+            }
+            
+            proxy_pass http://games-backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # 2048游戏前端
+        location /games/2048 {
+            # 如果路径是 /games/2048（没有后续路径），重定向到 /games/2048/
+            if ($uri = /games/2048) {
+                return 301 /games/2048/;
+            }
+            # 使用 rewrite 去掉 /games/2048 前缀，然后代理到前端
+            # 确保至少保留一个 / 字符
+            rewrite ^/games/2048(/.*)$ $1 break;
+            rewrite ^/games/2048$ / break;
+            proxy_pass http://games-frontend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+        }
+        
+        # Go Todo API（必须在 /go-todo 前端之前）
+        location /go-todo/api/ {
+            # 处理 OPTIONS 预检请求
+            if ($request_method = 'OPTIONS') {
+                add_header Access-Control-Allow-Origin * always;
+                add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+                add_header Access-Control-Max-Age 1728000;
+                add_header Content-Type 'text/plain charset=UTF-8';
+                add_header Content-Length 0;
+                return 204;
+            }
+            
+            # 去掉 /go-todo 前缀，保留 /api/
+            rewrite ^/go-todo(/api/.*)$ $1 break;
+            proxy_pass http://go-todo-backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # Go Todo 前端
+        location /go-todo {
+            # 如果路径是 /go-todo（没有后续路径），重定向到 /go-todo/
+            if ($uri = /go-todo) {
+                return 301 /go-todo/;
+            }
+            # 使用 rewrite 去掉 /go-todo 前缀，然后代理到前端
+            rewrite ^/go-todo(/.*)$ $1 break;
+            rewrite ^/go-todo$ / break;
+            proxy_pass http://go-todo-frontend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # ============================================
+        # Go Library 图书管理系统路由
+        # ============================================
+        
+        # Go Library API（必须在 /go-library 前端之前）
+        location /go-library/api/ {
+            # 处理 OPTIONS 预检请求
+            if ($request_method = 'OPTIONS') {
+                add_header Access-Control-Allow-Origin * always;
+                add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+                add_header Content-Length 0;
+                add_header Content-Type text/plain;
+                return 204;
+            }
+            
+            # 重写路径，去掉 /go-library 前缀
+            rewrite ^/go-library/api/(.*) /api/$1 break;
+            
+            proxy_pass http://go-library-backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # Go Library 前端
+        location /go-library {
+            # 去掉尾部斜杠
+            rewrite ^/go-library$ /go-library/ permanent;
+            
+            # 重写路径，去掉 /go-library 前缀
+            rewrite ^/go-library/(.*) /$1 break;
+            
+            proxy_pass http://go-library-frontend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # ============================================
+        # Java Shop 在线商城路由
+        # ============================================
+        
+        # Java Shop API（必须在 /java-shop 前端之前）
+        location /java-shop/api/ {
+            # 处理 OPTIONS 预检请求
+            if ($request_method = 'OPTIONS') {
+                add_header Access-Control-Allow-Origin * always;
+                add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+                add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+                add_header Content-Length 0;
+                add_header Content-Type text/plain;
+                return 204;
+            }
+            
+            # 重写路径，去掉 /java-shop 前缀
+            rewrite ^/java-shop/api/(.*) /api/$1 break;
+            
+            proxy_pass http://java-shop-backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # Java Shop 前端
+        location /java-shop {
+            # 去掉尾部斜杠
+            rewrite ^/java-shop$ /java-shop/ permanent;
+            
+            # 重写路径，去掉 /java-shop 前缀
+            rewrite ^/java-shop/(.*) /$1 break;
+            
+            proxy_pass http://java-shop-frontend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # 超时设置
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 30s;
+            proxy_read_timeout 30s;
+            
+            # CORS 头
+            add_header Access-Control-Allow-Origin * always;
+            add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+        }
+        
+        # 健康检查端点（用于状态监控）
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+    }
+}
+

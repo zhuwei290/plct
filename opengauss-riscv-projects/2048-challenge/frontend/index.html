@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2048 银河挑战</title>
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="layout">
+      <header>
+        <h1>2048 银河挑战</h1>
+        <p>基于 openGauss 的排行小游戏 · SG2042 × RISC-V</p>
+      </header>
+
+      <section class="controls">
+        <div class="mode-switch">
+          <button class="mode-btn active" data-mode="free">自由模式</button>
+          <button class="mode-btn" data-mode="daily">每日挑战</button>
+          <button class="mode-btn" data-mode="streak" disabled>连胜 (即将上线)</button>
+        </div>
+        <div class="actions">
+          <input
+            type="text"
+            id="username"
+            placeholder="玩家昵称（可选，用于排行榜）"
+            maxlength="50"
+          />
+          <button id="new-game">开始新对局</button>
+          <button id="undo" disabled>撤销 (待实现)</button>
+        </div>
+      </section>
+
+      <section class="status">
+        <div class="stat-card">
+          <span class="label">当前分数</span>
+          <span id="score">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">步数</span>
+          <span id="moves">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">用时 (秒)</span>
+          <span id="duration">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">本局种子</span>
+          <span id="seed">--</span>
+        </div>
+      </section>
+
+      <main>
+        <div id="board" class="board"></div>
+
+        <aside class="sidebar">
+          <div class="daily-card">
+            <h2>每日挑战</h2>
+            <p>
+              <span>日期：</span><strong id="daily-day">--</strong>
+            </p>
+            <p>
+              <span>目标分：</span><strong id="daily-target">--</strong>
+            </p>
+            <p>
+              <span>种子：</span><strong id="daily-seed">--</strong>
+            </p>
+            <button id="play-daily">挑战今日</button>
+          </div>
+
+          <div class="leaderboard-card">
+            <h2>今日排行</h2>
+            <ul id="leaderboard"></ul>
+            <button id="refresh-leaderboard">刷新排行榜</button>
+          </div>
+
+          <div class="tips-card">
+            <h2>玩法提示</h2>
+            <ul>
+              <li>键盘：使用方向键或 WASD 操作。</li>
+              <li>触屏：滑动进行移动。</li>
+              <li>每日挑战：所有玩家同一棋盘，谁最快达到目标分！</li>
+              <li>对局结束将自动提交成绩至 openGauss 数据库。</li>
+            </ul>
+          </div>
+        </aside>
+      </main>
+
+      <footer>
+        <span>Powered by openGauss · FastAPI · Vue-less 静态前端</span>
+        <span class="api-health" id="api-health">API 状态检测中...</span>
+      </footer>
+    </div>
+
+    <script>
+      window.__API_BASE__ =
+        window.location.pathname.startsWith("/games/2048")
+          ? "/games/api"
+          : (window.__API_BASE__ || "/games/api");
+    </script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
+

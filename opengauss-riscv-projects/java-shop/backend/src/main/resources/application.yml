@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:8009}
+
+spring:
+  application:
+    name: java-shop
+  
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:shopdb}
+    username: ${DB_USERNAME:shopuser}
+    password: ${DB_PASSWORD:ShopPass2024}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.shop.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    use-generated-keys: true
+    jdbc-type-for-null: NULL
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:default-secret-jwt-key-must-be-at-least-32-bytes-long-for-HS256}
+    expiration: 86400000  # 24 hours in milliseconds
+  
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:Admin@123}
+    email: ${ADMIN_EMAIL:admin@shop.com}
+
+logging:
+  level:
+    com.shop: DEBUG
+    org.springframework.web: INFO

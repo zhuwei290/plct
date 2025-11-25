@@ -74,7 +74,7 @@ app.add_middleware(
 # ==========================================
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://msgboard:MessageBoard2024!@database/messageboard"
+    "postgresql://msgboard:MessageBoard2024@database/messageboard"
 )
 
 try:
