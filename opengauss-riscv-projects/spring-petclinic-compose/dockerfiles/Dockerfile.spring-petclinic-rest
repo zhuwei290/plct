@@ -1,0 +1,16 @@
+# 可以 x86-64 架构上使用 qemu-user-static 模拟 riscv64 架构
+
+# 暂时使用x86-64架构来构建spring应用
+FROM --platform=linux/amd64 maven:3.9.9-eclipse-temurin-22 AS build-backend
+WORKDIR /app
+RUN apt-get update && apt-get install -y git
+RUN git clone https://gitee.com/xfan1024/spring-petclinic-rest.git .
+RUN mvn clean package -DskipTests && cp target/*.jar app.jar
+
+# 后端容器需要安装 java-17-openjdk-headless
+FROM --platform=linux/riscv64 xfan1024/openeuler:24.03-riscv64
+WORKDIR /app
+RUN dnf install -y java-17-openjdk-headless && dnf clean all
+COPY --from=build-backend /app/app.jar /app/app.jar
+ENTRYPOINT ["java","-jar","/app/app.jar"]
+EXPOSE 9966

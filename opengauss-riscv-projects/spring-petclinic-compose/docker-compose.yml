@@ -1,0 +1,62 @@
+services:
+  database:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - OPENGAUSS_USER=${DB_USERNAME}
+      - OPENGAUSS_PASSWORD=${DB_PASSWORD}
+    # ports:
+    #   # 如果需要从远端访问数据库，可以增加端口映射
+    #   - 5432:5432
+    volumes:
+      - opengauss:/var/lib/opengauss
+
+  databaseinit:
+    image: xfan1024/opengauss:6.0.0-riscv64
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=database
+    volumes:
+      - ./init-db:/init-db:ro
+    entrypoint: []
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["bash", "/init-db/init.sh" ]
+    healthcheck:
+      test: "[ $$(cat /proc/1/comm) = tail ]"
+      interval: 5s
+      timeout: 3s
+
+  backend:
+    image: xfan1024/spring-petclinic-rest:latest-riscv64
+    env_file:
+      - .env
+    environment:
+      - OPENGAUSS_URL=jdbc:opengauss://database/${DB_NAME}
+      - OPENGAUSS_USER=${DB_USERNAME}
+      - OPENGAUSS_PASS=${DB_PASSWORD}
+    ports:
+      # 暴露后端端口，用于网关直接代理API请求
+      - 9966:9966
+    depends_on:
+      databaseinit:
+        condition: service_healthy
+    restart: unless-stopped
+    command: ["--spring.profiles.active=opengauss,spring-data-jpa"]
+
+  frontend:
+    image: xfan1024/spring-petclinic-angular:latest-riscv64
+    ports:
+      # 必要的端口映射，外部流量入口（改为8002用于网关代理）
+      - 8002:80
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  opengauss:
