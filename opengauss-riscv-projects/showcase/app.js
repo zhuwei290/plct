@@ -223,6 +223,33 @@ function init() {
     setTimeout(startStatusChecker, 2000);
 }
 
+// 复制到剪贴板功能
+function copyToClipboard(element) {
+    const text = element.textContent;
+    const card = element.closest('.credential-card');
+    
+    navigator.clipboard.writeText(text).then(() => {
+        // 添加复制成功效果
+        card.classList.add('copied');
+        const hint = card.querySelector('.copy-hint');
+        const originalText = hint.textContent;
+        hint.textContent = '已复制!';
+        
+        setTimeout(() => {
+            card.classList.remove('copied');
+            hint.textContent = originalText;
+        }, 1500);
+    }).catch(err => {
+        console.error('复制失败:', err);
+        // 降级方案：选中文本
+        const range = document.createRange();
+        range.selectNode(element);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        alert('请按 Ctrl+C 复制');
+    });
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
